@@ -19,13 +19,45 @@ def add_indicators(data):
     data["bb_pband"] = bollinger_bands.bollinger_pband().shift(1)
     data["bb_width"] = bollinger_bands.bollinger_wband().shift(1)
 
+    stochastic = ta.momentum.StochasticOscillator(data["High"], data["Low"], close_column)
+    data["stochastic"] = stochastic.stoch().shift(1)
+    data["stochastic_signal"] = stochastic.stoch_signal().shift(1)
+
+    data["atr"] = ta.volatility.AverageTrueRange(data["High"], data["Low"], close_column).average_true_range().shift(1)
+    data["day"] = np.arange(len(close_column)) % 7
+    
     data["close_shifted"] = data["Close"].shift(1)
     data["open_shifted"] = data["Open"].shift(1)
     
     data.dropna(inplace=True)
-
     return data 
 
-def standardise(data):
-    return StandardScaler().fit_transform(data)
+def standardise(features, targets):
+    scaler = StandardScaler()
+    split = int(0.8 * len(features))
+    features_train = scaler.fit_transform(features[:split])
+    features_test = scaler.transform(features[split:])
+    targets_train, targets_test = targets[:split], targets[split:]
+    
+    return features_train, features_test, targets_train, targets_test
 
+def create_sequences(features_train, features_test, targets_train, targets_test, sequence_length=10):
+    sequence_train, sequence_test = [], []
+    
+    for i in range(sequence_length, len(features_train)):
+        sequence_train.append(features_train[i-sequence_length:i])
+
+    for i in range(sequence_length, len(features_test)):
+        sequence_test.append(features_test[i-sequence_length:i])
+    
+    return np.array(sequence_train), np.array(sequence_test), targets_train[sequence_length:].to_numpy(), targets_test[sequence_length:].to_numpy()
+
+"""
+def create_sequences(data, features_cols, target_col, sequence_length=10):
+    X, y = [], []
+    
+    for i in range(sequence_length, len(data)):
+        X.append(data[features_cols].iloc[i-sequence_length:i].values)
+        y.append(data[target_col].iloc[i])
+    return np.array(X), np.array(y)
+"""
