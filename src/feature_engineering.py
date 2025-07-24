@@ -2,6 +2,7 @@ import ta
 import numpy as np
 import ta.volatility
 from sklearn.preprocessing import StandardScaler
+SPLIT = 0.8
 
 def add_indicators(data):
     close_column = data["Close"]
