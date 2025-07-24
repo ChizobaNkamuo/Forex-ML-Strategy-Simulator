@@ -72,7 +72,7 @@ optimizer = Adam(
 )
 
 checkpoint = ModelCheckpoint(
-    "best_forex_model.h5",
+    "./models/best_forex_model.h5",
     monitor="val_loss",
     save_best_only=True,
     save_weights_only=False,

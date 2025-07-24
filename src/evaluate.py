@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import r2_score, mean_squared_error
 
-RISK_FREE_RATE = 0.04 / 252
+RISK_FREE_RATE = 0.02 / 252
 
 def plot_results(predictions, targets_test):
     pred_series = pd.Series(predictions.flatten(), name="Predicted")
@@ -36,21 +36,16 @@ def display_metrics(predictions, targets_test, data, sequence_length):
     conditions = [np.abs(predictions_percent) < take_profit, predictions_percent > 0, predictions_percent < 0]
     positions = np.select(conditions, [0, 1, -1]).squeeze()
     
-    # Fix fee calculation - convert to percentage of investment
     fee_per_lot = 3  # $3 per lot
     lot_size = 0.01
     contract_value = lot_size * 100000  # Standard forex lot
     fee_percentage = fee_per_lot / (contract_value * data["Open"].to_numpy())
-    
-    # Calculate returns
+ 
     returns = positions * targets_percent
     clipped_returns = np.clip(returns, -stop_loss, take_profit)
-    
-    # Subtract fees only when there's a position
+
     final_returns = clipped_returns - np.abs(positions) * fee_percentage
     
-    # Risk-free rate (adjust as needed - this is ~2% annual rate daily)
-    RISK_FREE_RATE = 0.02 / 252  # Daily risk-free rate
     print(f"Predictions shape: {predictions_percent.shape}")
     print(f"Targets shape: {targets_percent.shape}")
     print(f"Data shape after split: {data.shape}")
@@ -67,9 +62,9 @@ def display_metrics(predictions, targets_test, data, sequence_length):
 def plot_training_history(history):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
     
-    ax1.plot(history.history['loss'], label='Training Loss')
-    ax1.plot(history.history['val_loss'], label='Validation Loss')
-    ax1.set_title('Model Loss')
+    ax1.plot(history.history["loss"], label="Training Loss")
+    ax1.plot(history.history["val_loss"], label="Validation Loss")
+    ax1.set_title("Model Loss")
     ax1.legend()
     
     plt.show()
