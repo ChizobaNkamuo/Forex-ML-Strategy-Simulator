@@ -1,13 +1,10 @@
 import tensorflow as tf
+import numpy as np
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout, Bidirectional, LayerNormalization, Layer, TimeDistributed
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
-from keras.losses import MeanSquaredError, Hinge, Huber
 from keras import regularizers
 from keras.optimizers import Adam
-
-mse = MeanSquaredError()
-hinge = Hinge()
 
 class AttentionLayer(Layer):
     def __init__(self, **kwargs):
@@ -31,11 +28,18 @@ class AttentionLayer(Layer):
         output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1), axis=1)
         return output#, alphas
     
-def forex_loss(y_true, y_pred):
+def forex_loss(y_true, y_pred, alpha=2.5):
+    """
     true_directions = tf.cast(tf.sign(y_true), tf.float32)
     pred_directions = tf.cast(tf.sign(y_pred), tf.float32)
 
     return 0.3 * hinge(true_directions, pred_directions)  + mse(y_true, y_pred) 
+    """
+    error = tf.square(y_true - y_pred) 
+    product = y_true * y_pred
+
+    loss = tf.where(product >= 0, error, alpha * error)
+    return tf.reduce_mean(loss)
 
 def create(sequence_length, features_columns, features_train, targets_train):
     regularisation = regularizers.l1_l2(l1=1e-6, l2=1e-5)

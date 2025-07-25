@@ -32,7 +32,7 @@ def display_metrics(predictions, targets_test, data, sequence_length):
     data = data[split + sequence_length:]
 
     take_profit = 0.02
-    stop_loss = 0.01
+    stop_loss = take_profit / 2
     conditions = [np.abs(predictions_percent) < take_profit, predictions_percent > 0, predictions_percent < 0]
     positions = np.select(conditions, [0, 1, -1]).squeeze()
     

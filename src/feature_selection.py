@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 from sklearn.inspection import permutation_importance
 from sklearn.ensemble import RandomForestRegressor
 
@@ -29,9 +30,13 @@ def tree_analysis(features_columns, features_train,targets_train):
     random_forest = RandomForestRegressor(n_estimators=100, random_state=42)
     random_forest.fit(features_train, targets_train)
 
-    # Built-in importance (based on impurity decrease)
     importance_df = pd.DataFrame({
         "feature": features_columns,
         "importance": random_forest.feature_importances_
     }).sort_values("importance", ascending=False)
     print(importance_df)
+
+def heat_map(features_train, features):
+    plt.figure(figsize = (10,8))
+    sns.heatmap(pd.DataFrame(features_train).corr(), annot=True, fmt=".2f", xticklabels = features, yticklabels=features)
+    plt.show()
