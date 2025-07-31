@@ -4,7 +4,7 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout, Bidirectional, LayerNormalization, Layer, TimeDistributed
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from keras import regularizers
-from keras.optimizers import Adam
+from keras.optimizers import Nadam, Adam
 
 class AttentionLayer(Layer):
     def __init__(self, **kwargs):
@@ -28,44 +28,42 @@ class AttentionLayer(Layer):
         output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1), axis=1)
         return output#, alphas
     
-def forex_loss(y_true, y_pred, alpha=2.5):
-    """
-    true_directions = tf.cast(tf.sign(y_true), tf.float32)
-    pred_directions = tf.cast(tf.sign(y_pred), tf.float32)
+def forex_loss(y_true, y_pred, lambd = 0.9, sigma = 0.1):
+    #["Open", "Close", "High", "Low"]
+    alpha = lambd * (y_true - y_pred)  # Shape: (batch_size, 4)
+    beta = sigma * ((y_true[:, 1] + y_true[:, 2])/2 - (y_pred[:, 1] + y_pred[:, 2])/2)  # Difference of high-low averages (wick length difference)
+    gamma = sigma * ((y_true[:, 0] + y_true[:, 3])/2 - (y_pred[:, 0] + y_pred[:, 3])/2)  # Difference of open-close averages (body length difference)  
+    
+    adjusted_errors = tf.stack([# [alpha_i,open - gamma_i, alpha_i,high - beta_i, alpha_i,low - beta_i, alpha_i,close - gamma_i]
+        alpha[:, 0] - gamma,
+        alpha[:, 1] - beta, 
+        alpha[:, 2] - beta,
+        alpha[:, 3] - gamma
+    ], axis=1)
+    
+    return tf.reduce_mean(tf.square(adjusted_errors))
 
-    return 0.3 * hinge(true_directions, pred_directions)  + mse(y_true, y_pred) 
-    """
-    error = tf.square(y_true - y_pred) 
-    product = y_true * y_pred
-
-    loss = tf.where(product >= 0, error, alpha * error)
-    return tf.reduce_mean(loss)
-
-def create(sequence_length, features_columns, features_train, targets_train):
-    regularisation = regularizers.l1_l2(l1=1e-6, l2=1e-5)
+def create_candle_stick_model(sequence_length, features_columns, features_train, targets_train):
     model = Sequential([
-        Bidirectional(LSTM(32, return_sequences=True, input_shape=(sequence_length, len(features_columns)), kernel_regularizer=regularisation)),
-        TimeDistributed(LayerNormalization()),
-        Dropout(0.2),
-        Bidirectional(LSTM(128, return_sequences=True, kernel_regularizer=regularisation)),
-        AttentionLayer(),
-        Dropout(0.3),
-        Dense(25, kernel_regularizer=regularisation),
-        Dense(1, kernel_regularizer=regularisation)
+        LSTM(200, return_sequences=False, input_shape=(sequence_length, len(features_columns)), activation="relu"),
+        Dense(4)
     ])
 
-    reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, min_lr=1e-6)
+    reduce_learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+        0.0001,
+        decay_steps=1000,
+        decay_rate=0.9996,
+        staircase=False
+    )
     early_stop = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
-    optimizer = Adam(
-        learning_rate=0.001,
-        beta_1=0.9,
-        beta_2=0.999,
-        epsilon=1e-7, 
-        clipnorm=1.0
+    optimizer = Nadam(
+        learning_rate=reduce_learning_rate,#0.001,
+        beta_1=0.09,
+        beta_2=0.0999,
     )
 
     checkpoint = ModelCheckpoint(
-        "./models/best_forex_model.h5",
+        "./models/candle_stick_model.h5",
         monitor="val_loss",
         save_best_only=True,
         save_weights_only=False,
@@ -75,7 +73,54 @@ def create(sequence_length, features_columns, features_train, targets_train):
     model.compile(optimizer=optimizer, loss=forex_loss, metrics=[])
 
     history = model.fit(features_train, targets_train, 
-        epochs=100, 
+        epochs=200, 
+        batch_size=72, 
+        validation_split=0.2,
+        verbose=1, 
+        shuffle=False,
+        callbacks=[early_stop, checkpoint]
+    )
+
+    return model, history
+
+def mean_abs_directional_loss(y_true, y_pred):
+    return tf.reduce_mean(-tf.sign(y_true * y_pred) * tf.math.abs(y_true))
+
+def create_indicator_model(sequence_length, features_columns, features_train, targets_train):
+    regularisation = regularizers.l1_l2(l1=1e-6, l2=1e-5)
+    model = Sequential([
+        Bidirectional(LSTM(128, return_sequences=True, input_shape=(sequence_length, len(features_columns)), kernel_regularizer=regularisation)),
+        TimeDistributed(LayerNormalization()),
+        Dropout(0.2),
+        Bidirectional(LSTM(64, return_sequences=True, kernel_regularizer=regularisation)),
+        AttentionLayer(),
+        Dropout(0.3),
+        Dense(25, kernel_regularizer=regularisation),
+        Dense(1, kernel_regularizer=regularisation)
+    ])
+
+    reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, min_lr=1e-8)
+    early_stop = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+    optimizer = Adam(
+        learning_rate=0.001,
+        beta_1=0.9,
+        beta_2=0.999,
+        #epsilon=1e-7, 
+        #clipnorm=1.0
+    )
+
+    checkpoint = ModelCheckpoint(
+        "./models/indicator_model.h5",
+        monitor="val_loss",
+        save_best_only=True,
+        save_weights_only=False,
+        verbose=1
+    )
+
+    model.compile(optimizer=optimizer, loss=mean_abs_directional_loss, metrics=[])
+
+    history = model.fit(features_train, targets_train, 
+        epochs=200, 
         batch_size=64, 
         validation_split=0.2,
         verbose=1, 

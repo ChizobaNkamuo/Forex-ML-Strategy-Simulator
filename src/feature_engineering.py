@@ -3,37 +3,37 @@ import numpy as np
 import ta.volatility
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-SPLIT = 0.8
+SPLIT_PERCENTAGE = 0.8
 
-def add_indicators(data, macro_indicators):
-    close_column = data["Close"]
-    data["ema"] = close_column.ewm(span = 50).mean().shift(1) # Exponential moving average
-    data["log_return"] = np.log(close_column / close_column.shift(1))
-    
-    macd = ta.trend.MACD(close_column) # Mean average convergence divergence
-    data["macd"] =  macd.macd().shift(1)
-    data["macd_histogram"] = macd.macd_diff().shift(1)
-    data["rsi"] = ta.momentum.RSIIndicator(close_column).rsi().shift(1) # Relative strength index
+def add_indicators(data):
+    macd = ta.trend.MACD(data["Close"]) # Mean average convergence divergence
+    bb = ta.volatility.BollingerBands(close=data["Close"], window=20)
+    stochastic = ta.momentum.StochasticOscillator(data["High"], data["Low"], data["Close"])
+    date = pd.to_datetime(data["date"])
 
-    bollinger_bands = ta.volatility.BollingerBands(close=close_column, window=50, window_dev=2)
-    data["bb_high"] = bollinger_bands.bollinger_hband().shift(1)
-    data["bb_low"] = bollinger_bands.bollinger_lband().shift(1)
-    data["bb_pband"] = bollinger_bands.bollinger_pband().shift(1)
-    data["bb_width"] = bollinger_bands.bollinger_wband().shift(1)
-
-    stochastic = ta.momentum.StochasticOscillator(data["High"], data["Low"], close_column)
-    data["stochastic"] = stochastic.stoch().shift(1)
-    data["stochastic_signal"] = stochastic.stoch_signal().shift(1)
-
-    data["atr"] = ta.volatility.AverageTrueRange(data["High"], data["Low"], close_column).average_true_range().shift(1)
-    data["day"] = np.arange(len(close_column)) % 7
-    
-    data["close_shifted"] = data["Close"].shift(1)
-    data["open_shifted"] = data["Open"].shift(1)
-    data["high_shifted"] = data["High"].shift(1)
-    data["low_shifted"] = data["Low"].shift(1)
+    data["Change"] = data["Close"] - data["Open"]
+    for lag in range(1, 5):
+        data[f"Change_lag_{lag}"] = data["Change"].shift(lag)
+        
+    data["MA"] = data["Close"].rolling(10).mean() # Moving average
+    data["MACD"] =  macd.macd()
+    data["MACD_histogram"] = macd.macd_diff()
+    data["RSI"] = ta.momentum.RSIIndicator(data["Close"], window = 10).rsi() # Relative strength index
+    data["ROC"] = ta.momentum.roc(data["Close"], window = 2)
+    data["CCI"] = ta.trend.cci(data["High"], data["Low"], data["Close"])
+    data["bb_high"] = bb.bollinger_hband()
+    data["bb_low"] = bb.bollinger_lband()
+    data["bb_pband"] = bb.bollinger_pband()
+    data["bb_width"] = bb.bollinger_wband()
+    data["stochastic"] = stochastic.stoch()
+    data["stochastic_signal"] = stochastic.stoch_signal()
+    data["day_sin"] = np.sin(2 * np.pi * date.dt.weekday / 7)
+    data["day_cos"] = np.cos(2 * np.pi * date.dt.weekday / 7)
     
     data.dropna(inplace=True)
+    return data 
+
+def create_macro_indicators(data, macro_indicators):
     data["date"] = pd.to_datetime(data["date"])
 
     for indicator in macro_indicators:
@@ -46,34 +46,25 @@ def add_indicators(data, macro_indicators):
             on="date",
             direction="backward"
         )
-    return data 
+    return data
 
-def standardise(features, targets):
+def split_data(data, feature_columns, target_columns, sequence_length, scale = False):
+    split = int(SPLIT_PERCENTAGE * len(data))
+    train_data = add_indicators(data[:split].copy())
+    test_data = add_indicators(data[split:].copy())
+    
     scaler = StandardScaler()
-    split = int(0.8 * len(features))
-    features_train = scaler.fit_transform(features[:split])
-    features_test = scaler.transform(features[split:])
-    targets_train, targets_test = targets[:split], targets[split:]
-    
-    return features_train, features_test, targets_train, targets_test
+    train_features_scaled = scaler.fit_transform(train_data[feature_columns]) if scale else train_data[feature_columns]
+    test_features_scaled = scaler.transform(test_data[feature_columns]) if scale else test_data[feature_columns]
 
-def create_sequences(features_train, features_test, targets_train, targets_test, sequence_length=10):
-    sequence_train, sequence_test = [], []
+    X_train, y_train = create_sequences(train_features_scaled, train_data[target_columns].values, sequence_length)
+    X_test, y_test = create_sequences(test_features_scaled, test_data[target_columns].values, sequence_length)
     
-    for i in range(sequence_length, len(features_train)):
-        sequence_train.append(features_train[i-sequence_length:i])
+    return X_test, X_train, y_test, y_train, scaler
 
-    for i in range(sequence_length, len(features_test)):
-        sequence_test.append(features_test[i-sequence_length:i])
-    
-    return np.array(sequence_train), np.array(sequence_test), targets_train[sequence_length:].to_numpy(), targets_test[sequence_length:].to_numpy()
-
-"""
-def create_sequences(data, features_cols, target_col, sequence_length=10):
+def create_sequences(features, targets, sequence_length):
     X, y = [], []
-    
-    for i in range(sequence_length, len(data)):
-        X.append(data[features_cols].iloc[i-sequence_length:i].values)
-        y.append(data[target_col].iloc[i])
+    for i in range(len(features) - sequence_length):
+        X.append(features[i:i+sequence_length])
+        y.append(targets[i+sequence_length])
     return np.array(X), np.array(y)
-"""

@@ -1,8 +1,8 @@
 import yfinance as yf
 import pandas as pd
+start_date = "2021-07-29"
 
 def get_data(interval = "1d", pair = "EURUSD"):
-    start_date = "2021-07-29"
     end_date = "2025-07-01"
     #2021-07-29-2025-06-01
     forex_data = yf.download(f"{pair}=X", start=start_date, end=end_date, interval = interval)
