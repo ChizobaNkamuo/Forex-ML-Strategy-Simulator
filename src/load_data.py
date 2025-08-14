@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from src.feature_engineering import create_macro_indicators
+import feature_engineering
 macro_indicators = ["Fed_Funds_Rate","USA_CPI","EU_HICP","DAX_Close","EU_Interest","German_Interest","SP500"]
 features_columns_tech = ["Close", "MA", "MACD", "MACD_Histogram", "BB_Width", "BB_Pband", "RSI","ROC","CCI", "Momentum"]
 feature_columns_macro = ["Close"]
@@ -9,7 +9,7 @@ target_column = ["Change"]
 
 def load():
     data = pd.read_csv("./data/fx_daily_EUR_USD.csv").sort_values(by=["date"])
-    data = create_macro_indicators(data, macro_indicators)
+    data = feature_engineering.create_macro_indicators(data, macro_indicators)
     diff = (data["Close"] - data["Close"].shift(1))
     #print(threshold.calculate_threshold(diff))
     final_threshold = 0.0020400000000000045
