@@ -5,6 +5,7 @@ from keras.layers import LSTM, Dense, Dropout, Bidirectional, LayerNormalization
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping, ModelCheckpoint
 from keras import regularizers
 from keras.optimizers import Nadam, Adam
+from keras.losses import SparseCategoricalCrossentropy
 
 class AttentionLayer(Layer):
     def __init__(self, **kwargs):
@@ -96,7 +97,7 @@ def create_indicator_model(sequence_length, features_columns, features_train, ta
         AttentionLayer(),
         Dropout(0.3),
         Dense(25, kernel_regularizer=regularisation),
-        Dense(1, kernel_regularizer=regularisation)
+        Dense(1, kernel_regularizer=regularisation, activation="sigmoid")
     ])
 
     reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, min_lr=1e-8)
@@ -117,10 +118,40 @@ def create_indicator_model(sequence_length, features_columns, features_train, ta
         verbose=1
     )
 
-    model.compile(optimizer=optimizer, loss=mean_abs_directional_loss, metrics=[])
+    model.compile(optimizer=optimizer, loss="binarycrossentropy", metrics=[])
 
     history = model.fit(features_train, targets_train, 
         epochs=200, 
+        batch_size=64, 
+        validation_split=0.2,
+        verbose=1, 
+        shuffle=False,
+        callbacks=[reduce_learning_rate, early_stop, checkpoint]
+    )
+
+    return model, history
+
+def create_model(sequence_length, features_columns, features_train, targets_train, save_name):
+    model = Sequential([
+        LSTM(50, return_sequences=False, input_shape=(sequence_length, len(features_columns))),
+        Dense(3, activation="softmax")
+    ])
+
+    reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, min_lr=1e-8)
+    early_stop = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+
+    checkpoint = ModelCheckpoint(
+        f"./models/{save_name}.h5",
+        monitor="val_loss",
+        save_best_only=True,
+        save_weights_only=False,
+        verbose=1
+    )
+
+    model.compile(optimizer="adam", loss=SparseCategoricalCrossentropy(), metrics=[])
+
+    history = model.fit(features_train, targets_train, 
+        epochs=300, 
         batch_size=64, 
         validation_split=0.2,
         verbose=1, 

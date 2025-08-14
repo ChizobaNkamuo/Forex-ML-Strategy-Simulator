@@ -2,34 +2,24 @@ import pandas as pd
 import numpy as np
 import src.feature_engineering as feature_engineering
 import src.feature_selection as feature_selection
-import src.evaluate as evaluate
 import src.model_components as model_components
+import src.load_data as load_data
 
-macro_indicators = ["CPI","IORB","PPI","TRADE_BALANCE","GDP"] # "NON_FARM_EMPLOYEES","UNEMPLOYMENT",
-target_columns = ["Open", "Close", "High", "Low"]
-feature_columns = target_columns[:]
-target_columns_ti = ["Change"]
-features_columns_ti = ["Change","Change_lag_1","Change_lag_2","Change_lag_3","Change_lag_4","Open", "Close", "High", "Low", "MACD", "MACD_histogram", "bb_width", "bb_pband", "RSI","ROC","stochastic","CCI","MA","day_sin","day_cos"] #"bb_high", "bb_low","ema", "stochastic_signal""
-#features_columns_ti.extend(macro_indicators)
-data = pd.read_csv("./data/EURUSD2021-07-29-to-2025-07-01-1d.csv")
+target_column, feature_columns_macro, feature_columns_tech = load_data.get_features_and_targets()
+data = load_data.load()
+sequence_length = 50
+features_test, features_train, targets_test, targets_train, _, _, _ = feature_engineering.split_data(data.copy(deep = True), feature_columns_macro, target_column, sequence_length)
+features_test_tech, features_train_tech, targets_test_tech, targets_train_tech, train_dates, test_dates, scaler = feature_engineering.split_data(data, feature_columns_tech, target_column, sequence_length)
 
-sequence_length = 1
-sequence_length_ti = 50
-#feature_selection.heat_map(features_train, features_columns)
-#data = feature_engineering.create_macro_indicators(data, macro_indicators) 
-#data_ti = feature_engineering.create_macro_indicators(data.copy(deep = True), macro_indicators) 
-features_test, features_train, targets_test, targets_train, _ = feature_engineering.split_data(data.copy(deep = True), feature_columns, target_columns, sequence_length)
-features_test_ti, features_train_ti, targets_test_ti, targets_train_ti, scaler = feature_engineering.split_data(data, features_columns_ti, target_columns_ti, sequence_length_ti, scale = True)
-
-#candle_stick_model, candle_stick_history = model_components.create_candle_stick_model(sequence_length, feature_columns, features_train, targets_train)
-#predictions = candle_stick_model.predict(features_test)
-technical_model, technical_history = model_components.create_indicator_model(sequence_length_ti, features_columns_ti, features_train_ti, targets_train_ti)
-technical_predictions = technical_model.predict(features_test_ti)
-evaluate.directional_accuracy(technical_predictions, targets_test_ti)
+#macro_model, macro_history = model_components.create_model(sequence_length, feature_columns_macro, features_train, targets_train,"macro_model")
+#predictions = macro_model.predict(features_test)
+#technical_model, technical_history = model_components.create_technical_model(sequence_length, feature_columns_tech, features_train_tech, targets_train_tech)
+#technical_predictions = technical_model.predict(features_test_tech)
+#evaluate.directional_accuracy(technical_predictions, targets_test_tech)
 
 #predictions = target_scaler.inverse_transform(predictions)
 #targets_test = target_scaler.inverse_transform(targets_test)
 #training_dates = data["date"][len(data)-len(targets_test):]
 
-#evaluate.plot_training_history(training_dates, predictions)
-#evaluate.plot_candle_sticks(predictions, targets_test, training_dates)
+#evaluate.plot_candle_sticks(predictions, targets_test, test_dates)
+#evaluate.backtest(features_test, test_dates)
