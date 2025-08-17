@@ -30,7 +30,9 @@ def objective(trial, data, features, target_column):
     scores = []
 
     for fold, (train_idx, val_idx) in enumerate(tscv.split(data)):
-        features_train, features_val = data[features].iloc[train_idx], data[features].iloc[val_idx]
+        features_train, features_val = data.iloc[train_idx].copy(), data.iloc[val_idx].copy()
+        features_train, features_val = feature_engineering.add_indicators(features_train)[features], feature_engineering.add_indicators(features_val)[features]
+        
         targets_train, targets_val = data[target_column].iloc[train_idx], data[target_column].iloc[val_idx]
 
         scaler = MinMaxScaler()
@@ -89,9 +91,15 @@ target_column, features_macro, features_tech = load_data.get_features_and_target
 objective_with_data = partial(
     objective,
     data=data,
-    features=features_macro,
+    features=features_tech,
     target_column=target_column
 )
 
 study = optuna.create_study(direction="maximize")
 study.optimize(objective_with_data, n_trials=100)
+
+#Trial 28 finished with value: 0.6111600718899811 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 32, 'sequence_length': 20, 'learning_rate': 0.004589233717891442, 'batch_size': 64, 'dropout': 0.16353929605134976}.
+#Trial 4 finished with value: 0.6278130368366769 and parameters: {'layers': 1, 'lstm_units_0': 64, 'sequence_length': 40, 'learning_rate': 0.006797372520752821, 'batch_size': 64, 'dropout': 0.04419431314881173}.
+#Trial 110 finished with value: 0.6388836650699752 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 128, 'sequence_length': 90, 'learning_rate': 0.002475868375942953, 'batch_size': 32, 'dropout': 0.18193562077008132}
+#Trial 249 finished with value: 0.6714125011930039 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 128, 'sequence_length': 30, 'learning_rate': 0.00436878213795238, 'batch_size': 64, 'dropout': 0.1840306801226113}
+#Trial 21 finished with value: 0.6805251440625326 and parameters: {'layers': 2, 'lstm_units_0': 64, 'lstm_units_1': 64, 'sequence_length': 100, 'learning_rate': 0.008870914607077226, 'batch_size': 128, 'dropout': 0.14697610473806522}

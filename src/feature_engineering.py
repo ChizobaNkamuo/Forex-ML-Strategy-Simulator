@@ -22,7 +22,7 @@ def add_indicators(data):
  
     data.dropna(inplace=True)
 
-    return data, data["date"]
+    return data#, data["date"]
 
 def create_macro_indicators(data, macro_indicators):
     data["date"] = pd.to_datetime(data["date"], format = "%d/%m/%Y")
