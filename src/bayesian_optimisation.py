@@ -11,7 +11,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import MinMaxScaler
 from functools import partial
 
-def objective(trial, data, features, target_column):
+def objective(trial, data, features, target):
     epochs = 75
     n_splits = 5
     
@@ -30,10 +30,10 @@ def objective(trial, data, features, target_column):
     scores = []
 
     for fold, (train_idx, val_idx) in enumerate(tscv.split(data)):
-        features_train, features_val = data.iloc[train_idx].copy(), data.iloc[val_idx].copy()
-        features_train, features_val = feature_engineering.add_indicators(features_train)[features], feature_engineering.add_indicators(features_val)[features]
-        
-        targets_train, targets_val = data[target_column].iloc[train_idx], data[target_column].iloc[val_idx]
+        train_data, val_data = feature_engineering.add_indicators(data.iloc[train_idx].copy()), feature_engineering.add_indicators(data.iloc[val_idx].copy())
+
+        features_train, features_val = train_data[features], val_data[features]
+        targets_train, targets_val = train_data[target], val_data[target]
 
         scaler = MinMaxScaler()
         features_train, features_val = scaler.fit_transform(features_train), scaler.transform(features_val)
@@ -86,13 +86,13 @@ def calculate_profit_accuracy(predictions, truth, diff):
     return score / denominator if denominator > 0 else 0
 
 data = load_data.load()
-target_column, features_macro, features_tech = load_data.get_features_and_targets()
+target, features_macro, features_tech = load_data.get_features_and_targets()
 
 objective_with_data = partial(
     objective,
     data=data,
     features=features_tech,
-    target_column=target_column
+    target=target
 )
 
 study = optuna.create_study(direction="maximize")
