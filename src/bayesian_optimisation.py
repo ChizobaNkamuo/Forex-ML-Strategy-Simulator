@@ -28,6 +28,7 @@ def objective(trial, data, features, target):
     
     tscv = TimeSeriesSplit(n_splits=n_splits)
     scores = []
+    total_trades = trades_made = 0
 
     for fold, (train_idx, val_idx) in enumerate(tscv.split(data)):
         train_data, val_data = feature_engineering.add_indicators(data.iloc[train_idx].copy()), feature_engineering.add_indicators(data.iloc[val_idx].copy())
@@ -44,13 +45,16 @@ def objective(trial, data, features, target):
         model.fit(features_train, targets_train, epochs=epochs, verbose=0, batch_size = batch_size, shuffle=False, callbacks=callbacks, validation_data=(features_val, targets_val))
    
         prediction = model.predict(features_val)
-        score = calculate_profit_accuracy(prediction, targets_val, data["Diff"].iloc[val_idx[sequence_length:]].values)
+        score, num_trades = calculate_profit_accuracy(prediction, targets_val, data["Diff"].iloc[val_idx[sequence_length:]].values)
+        trades_made += num_trades
+        total_trades += len(targets_val)
+
         scores.append(score)
         
         trial.report(score, fold)
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
-    
+    print(f"Mean number of trades {trades_made/n_splits} out of {total_trades / n_splits} per fold")
     return np.mean(scores)
 
 def create_model(trial, input_size):
@@ -83,7 +87,7 @@ def calculate_profit_accuracy(predictions, truth, diff):
                 score += 1
 
     denominator = score + wrong_guesses
-    return score / denominator if denominator > 0 else 0
+    return score / denominator if denominator > 0 else 0, denominator
 
 data = load_data.load()
 target, features_macro, features_tech = load_data.get_features_and_targets()
@@ -103,3 +107,6 @@ study.optimize(objective_with_data, n_trials=100)
 #Trial 110 finished with value: 0.6388836650699752 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 128, 'sequence_length': 90, 'learning_rate': 0.002475868375942953, 'batch_size': 32, 'dropout': 0.18193562077008132}
 #Trial 249 finished with value: 0.6714125011930039 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 128, 'sequence_length': 30, 'learning_rate': 0.00436878213795238, 'batch_size': 64, 'dropout': 0.1840306801226113}
 #Trial 21 finished with value: 0.6805251440625326 and parameters: {'layers': 2, 'lstm_units_0': 64, 'lstm_units_1': 64, 'sequence_length': 100, 'learning_rate': 0.008870914607077226, 'batch_size': 128, 'dropout': 0.14697610473806522}
+
+#Trial 65 finished with value: 0.6478369323142681 and parameters: {'layers': 1, 'lstm_units_0': 32, 'sequence_length': 60, 'learning_rate': 0.0001462191959806028, 'batch_size': 256, 'dropout': 0.15700416190694938}
+#Trial 46 finished with value: 0.6351926939946743 and parameters: {'layers': 3, 'lstm_units_0': 128, 'lstm_units_1': 128, 'lstm_units_2': 32, 'sequence_length': 40, 'learning_rate': 0.006864334404586279, 'batch_size': 128, 'dropout': 0.19846915967484074}
