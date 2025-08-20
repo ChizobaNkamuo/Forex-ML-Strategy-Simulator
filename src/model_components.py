@@ -131,7 +131,7 @@ def create_indicator_model(sequence_length, features_columns, features_train, ta
 
     return model, history
 
-def create_model(sequence_length, features_columns, features_train, targets_train, save_name):
+def train_model(sequence_length, features_columns, features_train, targets_train, save_name):
     model = Sequential([
         LSTM(50, return_sequences=False, input_shape=(sequence_length, len(features_columns))),
         Dense(3, activation="softmax")
@@ -151,7 +151,7 @@ def create_model(sequence_length, features_columns, features_train, targets_trai
     model.compile(optimizer="adam", loss=SparseCategoricalCrossentropy(), metrics=[])
 
     history = model.fit(features_train, targets_train, 
-        epochs=300, 
+        epochs=1, 
         batch_size=64, 
         validation_split=0.2,
         verbose=1, 
@@ -160,3 +160,20 @@ def create_model(sequence_length, features_columns, features_train, targets_trai
     )
 
     return model, history
+
+def hybrid_predict(macro_predictions, tech_predictions):
+    macro_predictions = macro_predictions.squeeze()
+    tech_predictions = tech_predictions.squeeze()
+    joint_predictions = []
+    
+    for macro_prediction, tech_prediction in zip(macro_predictions, tech_predictions):
+        macro_index = np.argmax(macro_prediction)
+        tech_index = np.argmax(tech_prediction)
+        if macro_index == tech_index:
+            joint_predictions.append(macro_index)
+        elif macro_index == 0 or tech_index == 0:
+            joint_predictions.append(0) 
+        else:
+            joint_predictions.append(macro_index if macro_prediction[macro_index] > tech_prediction[tech_index] else tech_index)
+    print(joint_predictions)
+    return np.array(joint_predictions)
