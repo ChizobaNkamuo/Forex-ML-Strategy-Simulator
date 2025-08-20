@@ -84,7 +84,7 @@ def backtest(data, prune_length, macro_predictions, tech_predictions):
     #data_frame.reset_index(inplace=True)
     data_frame["predictions"] = model_components.hybrid_predict(macro_predictions, tech_predictions)
     data_frame = data_frame.rename(columns={"Open": "open", "Close": "close", "High":"high", "Low": "low", "Change" : "truth_predictions"})
-    #data_frame["truth_predictions"] = data_frame["truth_predictions"].shift(-1)
+    data_frame["truth_predictions"] = data_frame["truth_predictions"].shift(-1)
     data.dropna(inplace=True)
 
     test_data = TradingData(dataname=data_frame)
@@ -93,10 +93,7 @@ def backtest(data, prune_length, macro_predictions, tech_predictions):
     cerebro.adddata(test_data)
     cerebro.broker.setcash(100000.0)
     cerebro.broker.setcommission(commission=0.00003, commtype=bt.CommInfoBase.COMM_PERC) #Based on IC markets commission 
-    print("Starting Portfolio Value: %.2f" % cerebro.broker.getvalue())
     cerebro.run()
-    print("Final Portfolio Value: %.2f" % cerebro.broker.getvalue())
-
 
 target_column, feature_columns_macro, feature_columns_tech = load_data.get_features_and_targets()
 data = load_data.load()
