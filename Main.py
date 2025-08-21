@@ -10,6 +10,8 @@ data = load_data.load()
 sequence_length = 50
 features_test, features_train, targets_test, targets_train, _, _, _ = feature_engineering.split_data(data.copy(deep = True), feature_columns_macro, target_column, sequence_length)
 features_test_tech, features_train_tech, targets_test_tech, targets_train_tech, train_dates, test_dates, scaler = feature_engineering.split_data(data, feature_columns_tech, target_column, sequence_length)
+print(features_train_tech.shape)
+#model_components.train_model(sequence_length, features_train_tech, features_train, targets_train, save_name)
 
 #macro_model, macro_history = model_components.create_model(sequence_length, feature_columns_macro, features_train, targets_train,"macro_model")
 #predictions = macro_model.predict(features_test)
@@ -21,5 +23,4 @@ features_test_tech, features_train_tech, targets_test_tech, targets_train_tech, 
 #targets_test = target_scaler.inverse_transform(targets_test)
 #training_dates = data["date"][len(data)-len(targets_test):]
 
-#evaluate.plot_candle_sticks(predictions, targets_test, test_dates)
 #evaluate.backtest(features_test, test_dates)

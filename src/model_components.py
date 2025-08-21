@@ -131,35 +131,85 @@ def create_indicator_model(sequence_length, features_columns, features_train, ta
 
     return model, history
 
-def train_model(sequence_length, features_columns, features_train, targets_train, save_name):
+def train_macro_model(sequence_length, features_columns, features_train, targets_train, save_name, load_weights=False):
+    savePath = f"./models/{save_name}.keras"
+    dropout = 0.10227985946981902
+    learning_rate = 0.005261567447932985
     model = Sequential([
-        LSTM(50, return_sequences=False, input_shape=(sequence_length, len(features_columns))),
+        LSTM(128, return_sequences=True, input_shape=(sequence_length, len(features_columns))),
+        Dropout(dropout),
+        LSTM(32, return_sequences=False, input_shape=(sequence_length, len(features_columns))),
+        Dropout(dropout),
         Dense(3, activation="softmax")
     ])
+    model.compile(optimizer=Adam(learning_rate = learning_rate), loss=SparseCategoricalCrossentropy(), metrics=[])
 
-    reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=7, min_lr=1e-8)
-    early_stop = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+    if load_weights:
+        model(tf.zeros((1, sequence_length, len(features_columns))))
+        model.load_weights(savePath)
+        return model
+    else:
+        reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=5)
+        early_stop = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
 
-    checkpoint = ModelCheckpoint(
-        f"./models/{save_name}.h5",
-        monitor="val_loss",
-        save_best_only=True,
-        save_weights_only=False,
-        verbose=1
-    )
+        checkpoint = ModelCheckpoint(
+            savePath,
+            monitor="val_loss",
+            save_best_only=True,
+            save_weights_only=True,
+            verbose=1
+        )
 
-    model.compile(optimizer="adam", loss=SparseCategoricalCrossentropy(), metrics=[])
+        history = model.fit(features_train, targets_train, 
+            epochs=200, 
+            batch_size=128, 
+            validation_split=0.2,
+            verbose=1, 
+            shuffle=False,
+            callbacks=[reduce_learning_rate, early_stop, checkpoint]
+        )
+        return model, history
 
-    history = model.fit(features_train, targets_train, 
-        epochs=1, 
-        batch_size=64, 
-        validation_split=0.2,
-        verbose=1, 
-        shuffle=False,
-        callbacks=[reduce_learning_rate, early_stop, checkpoint]
-    )
+def train_tech_model(sequence_length, features_columns, features_train, targets_train, save_name, load_weights=False):
+    savePath = f"./models/{save_name}.keras"
+    dropout = 0.04299831983137829
+    learning_rate = 0.0012254914143249621
+    model = Sequential([
+        LSTM(32, return_sequences=False, input_shape=(sequence_length, len(features_columns))),
+        Dropout(dropout),
+        Dense(3, activation="softmax")
+    ])
+    model.compile(optimizer=Adam(learning_rate = learning_rate), loss=SparseCategoricalCrossentropy(), metrics=[])
 
-    return model, history
+    if load_weights:
+        model(tf.zeros((1, sequence_length, len(features_columns))))
+        model.load_weights(savePath)
+        return model
+    else:
+        reduce_learning_rate = ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=5)
+        early_stop = EarlyStopping(monitor="val_loss", patience=15, restore_best_weights=True)
+
+        checkpoint = ModelCheckpoint(
+            savePath,
+            monitor="val_loss",
+            save_best_only=True,
+            save_weights_only=True,
+            verbose=1
+        )
+
+        history = model.fit(features_train, targets_train, 
+            epochs=200, 
+            batch_size=32, 
+            validation_split=0.2,
+            verbose=1, 
+            shuffle=False,
+            callbacks=[reduce_learning_rate, early_stop, checkpoint]
+        )
+        return model, history
+    #Trial 135 finished with value: 0.6395081678622901 and parameters: {'layers': 1, 'lstm_units_0': 32, 'sequence_length': 90, 'learning_rate': 0.0012254914143249621, 'batch_size': 32, 'dropout': 0.04299831983137829}.
+
+
+    
 
 def hybrid_predict(macro_predictions, tech_predictions):
     macro_predictions = macro_predictions.squeeze()

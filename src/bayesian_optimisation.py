@@ -41,7 +41,7 @@ def objective(trial, data, features, target):
         features_train, targets_train = feature_engineering.create_sequences(features_train, targets_train.values, sequence_length)
         features_val, targets_val = feature_engineering.create_sequences(features_val, targets_val.values, sequence_length)
         _, diff = feature_engineering.create_sequences(val_data[["Diff"]], val_data["Diff"].values, sequence_length)
-        
+
         model = create_model(trial, len(features))    
         model.fit(features_train, targets_train, epochs=epochs, verbose=0, batch_size = batch_size, shuffle=False, callbacks=callbacks, validation_data=(features_val, targets_val))
         prediction = model.predict(features_val)
@@ -90,6 +90,26 @@ def calculate_profit_accuracy(predictions, truth, diff):
     denominator = score + wrong_guesses
     return score / denominator if denominator > 0 else 0, denominator
 
+def calculate_sharpe_ratio(predictions, diff):
+    pnl = []
+    trades_made = 0
+
+    for pred, diff_value in zip(predictions, diff):
+        action = np.argmax(pred)
+        if action == 1:
+            pnl.append(-diff_value)
+            trades_made += 1
+        elif action == 2:
+            pnl.append(diff_value)
+            trades_made += 1
+        else:
+            pnl.append(0)
+    pnl = np.array(pnl)
+    mean_return = np.mean(pnl)
+    std_return  = np.std(pnl)
+
+    return mean_return / std_return if std_return > 0 else 0, trades_made
+
 data = load_data.load()
 target, features_macro, features_tech = load_data.get_features_and_targets()
 
@@ -112,3 +132,10 @@ study.optimize(objective_with_data, n_trials=100)
 #Trial 65 finished with value: 0.6478369323142681 and parameters: {'layers': 1, 'lstm_units_0': 32, 'sequence_length': 60, 'learning_rate': 0.0001462191959806028, 'batch_size': 256, 'dropout': 0.15700416190694938}
 #Trial 46 finished with value: 0.6351926939946743 and parameters: {'layers': 3, 'lstm_units_0': 128, 'lstm_units_1': 128, 'lstm_units_2': 32, 'sequence_length': 40, 'learning_rate': 0.006864334404586279, 'batch_size': 128, 'dropout': 0.19846915967484074}
 #Trial 5 finished with value: 0.6964190285704019 and parameters: {'layers': 1, 'lstm_units_0': 64, 'sequence_length': 30, 'learning_rate': 0.00113006275771308, 'batch_size': 32, 'dropout': 0.18555639384988765}.
+
+
+#Tech
+#Trial 135 finished with value: 0.6395081678622901 and parameters: {'layers': 1, 'lstm_units_0': 32, 'sequence_length': 90, 'learning_rate': 0.0012254914143249621, 'batch_size': 32, 'dropout': 0.04299831983137829}.
+
+#Macro
+#Trial 111 finished with value: 0.6294575462362176 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 32, 'sequence_length': 20, 'learning_rate': 0.005261567447932985, 'batch_size': 128, 'dropout': 0.10227985946981902}.
