@@ -123,17 +123,6 @@ objective_with_data = partial(
 study = optuna.create_study(direction="maximize")
 study.optimize(objective_with_data, n_trials=100)
 
-#Trial 28 finished with value: 0.6111600718899811 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 32, 'sequence_length': 20, 'learning_rate': 0.004589233717891442, 'batch_size': 64, 'dropout': 0.16353929605134976}.
-#Trial 4 finished with value: 0.6278130368366769 and parameters: {'layers': 1, 'lstm_units_0': 64, 'sequence_length': 40, 'learning_rate': 0.006797372520752821, 'batch_size': 64, 'dropout': 0.04419431314881173}.
-#Trial 110 finished with value: 0.6388836650699752 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 128, 'sequence_length': 90, 'learning_rate': 0.002475868375942953, 'batch_size': 32, 'dropout': 0.18193562077008132}
-#Trial 249 finished with value: 0.6714125011930039 and parameters: {'layers': 2, 'lstm_units_0': 128, 'lstm_units_1': 128, 'sequence_length': 30, 'learning_rate': 0.00436878213795238, 'batch_size': 64, 'dropout': 0.1840306801226113}
-#Trial 21 finished with value: 0.6805251440625326 and parameters: {'layers': 2, 'lstm_units_0': 64, 'lstm_units_1': 64, 'sequence_length': 100, 'learning_rate': 0.008870914607077226, 'batch_size': 128, 'dropout': 0.14697610473806522}
-
-#Trial 65 finished with value: 0.6478369323142681 and parameters: {'layers': 1, 'lstm_units_0': 32, 'sequence_length': 60, 'learning_rate': 0.0001462191959806028, 'batch_size': 256, 'dropout': 0.15700416190694938}
-#Trial 46 finished with value: 0.6351926939946743 and parameters: {'layers': 3, 'lstm_units_0': 128, 'lstm_units_1': 128, 'lstm_units_2': 32, 'sequence_length': 40, 'learning_rate': 0.006864334404586279, 'batch_size': 128, 'dropout': 0.19846915967484074}
-#Trial 5 finished with value: 0.6964190285704019 and parameters: {'layers': 1, 'lstm_units_0': 64, 'sequence_length': 30, 'learning_rate': 0.00113006275771308, 'batch_size': 32, 'dropout': 0.18555639384988765}.
-
-
 #Tech
 #Trial 135 finished with value: 0.6395081678622901 and parameters: {'layers': 1, 'lstm_units_0': 32, 'sequence_length': 90, 'learning_rate': 0.0012254914143249621, 'batch_size': 32, 'dropout': 0.04299831983137829}.
 
