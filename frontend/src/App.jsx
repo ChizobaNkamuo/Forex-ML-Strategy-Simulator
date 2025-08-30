@@ -1,9 +1,12 @@
 import "./App.css";
-import '@mantine/core/styles.css';     // Base styles (required)
-import '@mantine/dates/styles.css';   // Date picker styles
+import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
+import axios from "axios";
 import { ChartComponent } from "./ChartComponent";
 import { MantineProvider } from "@mantine/core";
-import { DatePickerInput } from '@mantine/dates';
+import { DatePickerInput } from "@mantine/dates";
+import { useState, useEffect } from "react";
+import spinnerImg from "./assets/Dual_Ring.svg"
 
 function StatText({name, value}) {
   return <li className="w-full text-white uppercase pb-3">
@@ -12,74 +15,145 @@ function StatText({name, value}) {
   </li>
 }
 
+function Spinner() {
+  return <img src={spinnerImg} className="px-"></img>
+}
+
+function CandleStickLegend() {
+  return <div>
+      <div className="text-green-500 text-sm font-bold">▲ Buy Signal</div>
+      <div className="text-red-500 text-sm font-bold">▼ Sell Signal</div>
+  </div>
+}
+
 function App() {
-  const stats = [
+  const oldstats = [
     {name: "Win Rate", value: "67%"},
     {name: "Sharpe Ratio", value: "0.9"},
     {name: "ROI", value: "50%"},
     {name: "Profit Factor", value: "1.5"},
     {name: "Max Drawdown", value: "10%"},
   ];
-
-  const equityData = [
-      { time: "2018-12-22", value: 32.51 },
-      { time: "2018-12-23", value: 31.11 },
-      { time: "2018-12-24", value: 27.02 },
-      { time: "2018-12-25", value: 27.32 },
-      { time: "2018-12-26", value: 25.17 },
-      { time: "2018-12-27", value: 28.89 },
-      { time: "2018-12-28", value: 25.46 },
-      { time: "2018-12-29", value: 23.92 },
-      { time: "2018-12-30", value: 22.68 },
-      { time: "2018-12-31", value: 22.67 },
-  ];
-
-  const startDate = new Date("2024-01-26");
-  const endDate = new Date("2025-08-04");
+  const startDate = "2024-04-25";
+  const endDate = "2025-08-04";
+  const [equityData, setEquityData] = useState([]);
+  const [candleStickData, setCandleStickData] = useState([]);
+  const [markers, setMarkers] = useState([]);
+  const [stats, setStats] = useState({});
+  const [trades, setTrades] = useState([]);
+  const [date, setDate] = useState([startDate, endDate]);
+  const [leverage, setLeverage] = useState(10);
+  const [leverageError, setLeverageError] = useState(false);
+  const [lotSize, setLotSize] = useState(8);
+  const [lotError, setLotError] = useState(false);
+  const [cash, setCash] = useState(100000.0);
+  const [cashError, setCashError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const equityCustomisation = {lineColor: "#2962FF", areaTopColor: "#2962FF", areaBottomColor: "oklch(27.9% 0.041 260.031)"}
+  function runModel() {
+      setLoading(true);
+      axios.get("http://127.0.0.1:8000/backtest",{
+        params: {
+          start_date: date[0],
+          end_date: date[1],
+          leverage: leverage,
+          units: lotSize * 100000,
+          start_cash: cash
+        }
+      })
+      .then((res) => {
+        setEquityData(res.data["equity_curve"]);
+        setCandleStickData(res.data["candle_sticks"]);
+        setMarkers(res.data["markers"]);
+        setStats(res.data["stats"]);
+        setTrades(res.data["trades"]);
+        setLoading(false)
+      })
+      .catch((err) => console.error("Error fetching data:", err))
+  };
 
-  const candleStickData = [{ open: 10, high: 10.63, low: 9.49, close: 9.55, time: 1642427876 }, { open: 9.55, high: 10.30, low: 9.42, close: 9.94, time: 1642514276 }, { open: 9.94, high: 10.17, low: 9.92, close: 9.78, time: 1642600676 }, { open: 9.78, high: 10.59, low: 9.18, close: 9.51, time: 1642687076 }, { open: 9.51, high: 10.46, low: 9.10, close: 10.17, time: 1642773476 }, { open: 10.17, high: 10.96, low: 10.16, close: 10.47, time: 1642859876 }, { open: 10.47, high: 11.39, low: 10.40, close: 10.81, time: 1642946276 }, { open: 10.81, high: 11.60, low: 10.30, close: 10.75, time: 1643032676 }, { open: 10.75, high: 11.60, low: 10.49, close: 10.93, time: 1643119076 }, { open: 10.93, high: 11.53, low: 10.76, close: 10.96, time: 1643205476 }];
+  function checkInt(setValue, setError, value) {
+    const intValue = parseInt(value)
+    if (!isNaN(intValue) && isFinite(value) && intValue > 0) {
+      setValue(intValue);
+      setError(false);
+    }else{
+      setError(true);
+    }
+  }
+  function checkFloat(setValue, setError, value) {
+    const floatValue = parseFloat(value)
+    if (!isNaN(floatValue) && isFinite(value) && floatValue > 0) {
+      setValue(floatValue);
+      setError(false);
+    }else{
+      setError(true);
+    }
+  }
 
-  const statItems = stats.map(stat => <StatText key = {stat.name} name = {stat.name} value = {stat.value}></StatText>);
+  useEffect(() => runModel(), []);
+
   return (
     <div className="bg-slate-900 h-screen">
       <header className="px-5 pt-4  pb-2">
         <h1 className="text-white text-2xl font-bold">Forex Prediction Model Dashboard</h1>
       </header>
 
-      <div className="grid grid-cols-4 gap-4 w-screen h-[calc(100vh-60px)] pt-1 px-5 pb-10">
-        <div className="col-span-3 row-span-2 grid grid-rows-2 gap-4">
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
-              <ChartComponent name = "EQUITY CURVE" type="AreaSeries" data={equityData} customisation = {equityCustomisation}></ChartComponent>
+      <div className="grid grid-cols-6 gap-4 w-screen h-[calc(100vh-60px)] pt-1 px-5 pb-10">
+        <div className="col-span-3 row-span-3 grid grid-rows-2 gap-4">
+          <div className="grid place-items-center bg-slate-800 rounded-xl p-4 border border-slate-600">
+              {loading ? Spinner(): 
+              <ChartComponent name = "EQUITY CURVE" type="AreaSeries" data={equityData} customisation = {equityCustomisation}></ChartComponent>}
           </div>
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
-              <ChartComponent name = "PRICE ACTION AND PREDICTIONS" type="CandlestickSeries" data={candleStickData} customisation = {[]}></ChartComponent>
+          <div className="grid place-items-center bg-slate-800 rounded-xl p-4 border border-slate-600">
+            {loading ? Spinner(): 
+            <ChartComponent name = "PRICE ACTION AND PREDICTIONS" type="CandlestickSeries" data={candleStickData} customisation = {[]} markers = {markers} CustomLegend = {CandleStickLegend}></ChartComponent>}
           </div>
-
         </div>
 
-        <div className="col-span-1 row-span-2 grid grid-rows-2 gap-4">
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
-            <h3 className="text-gray-400 text-sm tracking-wide mb-4 py m-0">PEFORMANCE METRICS</h3>
-            <ul>{statItems}</ul>
-          </div>
-          <div className="bg-slate-800 rounded-xl p-4 border border-slate-600">
-            <h3 className="text-gray-400 text-sm tracking-wide mb-4 py m-0">TRADES MADE</h3>
+        <div className={`${loading ? "grid place-items-center" : ""} "col-span-1 row-span-3 bg-slate-800 rounded-xl p-4 border border-slate-600`}>
+          {loading ? Spinner(): 
+          <>
+          <h3 className="text-gray-400 text-sm tracking-wide mb-4 py m-0">PEFORMANCE METRICS</h3>
+          <ul>{Object.keys(stats).map((key) => (<StatText key = {key} name = {key} value = {stats[key]}></StatText>))}</ul>
+          </>}
+        </div>
+
+        <div className={`${loading ? "grid place-items-center" : ""} scrollbar col-span-1 row-span-3 bg-slate-800 rounded-xl p-4 border border-slate-600 overflow-y-scroll`}>
+          {loading ? Spinner(): 
+          <>
+          <h3 className="text-gray-400 text-sm tracking-wide mb-4 py m-0">TRADES MADE</h3>
+          <ul>{trades.map((key) => (<li className="border-b text-sm border-slate-600" key = {key}>{key}</li>))}</ul>
+          </>}
+        </div>
+
+        <div className="col-span-1 row-span-3 bg-slate-800 rounded-xl p-4 border border-slate-600">
+            <h3 className="text-gray-400 text-sm tracking-wide mb-4 py m-0">SETTINGS</h3>
               <MantineProvider defaultColorScheme="dark">
                 <DatePickerInput
                   type="range"
-                  placeholder="Select date range"
                   label="Analysis Period"
                   minDate={startDate}
                   maxDate={endDate}
+                  value={date}
+                  onChange={setDate}
                 />
               </MantineProvider>
+              <p className="font-medium text-sm pt-6">Leverage</p>
+              <input defaultValue={leverage} className="rounded-lg p-1 bg-[#2e2e2e] border border-[#424242]" onChange={e => checkInt(setLeverage, setLeverageError, e.target.value)} ></input>
+              <p className={`${leverageError ? "visible": "invisible"} text-red-500 font-medium text-sm`}>Invalid Leverage</p>
 
-          </div>
+              <p className="font-medium text-sm pt-3">Lot Size</p>
+              <input defaultValue={lotSize} className="rounded-lg p-1 bg-[#2e2e2e] border border-[#424242]" onChange={e => checkFloat(setLotSize, setLotError, e.target.value)} ></input>
+              <p className={`${lotError ? "visible": "invisible"} text-red-500 font-medium text-sm`}>Invalid Lot Size</p>
 
+              <p className="font-medium text-sm pt-3">Start Cash ($)</p>
+              <input defaultValue={cash} className="rounded-lg p-1 bg-[#2e2e2e] border border-[#424242]" onChange={e => checkFloat(setCash, setCashError, e.target.value)} ></input>
+              <p className={`${cashError ? "visible": "invisible"} text-red-500 font-medium text-sm`}>Invalid Cash Value</p>
+
+              <button className="disabled:opacity-50 disabled:hover:border-slate-900 bg-slate-900 p-2 my-5" disabled={cashError || lotError || leverageError} onClick={runModel}>Run Model</button>
         </div>
-
         
       </div>
     </div>

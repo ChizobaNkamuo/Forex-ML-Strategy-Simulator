@@ -1,5 +1,5 @@
 
-import { AreaSeries, CandlestickSeries,createChart, ColorType } from "lightweight-charts";
+import { AreaSeries, CandlestickSeries,createChart, ColorType, createSeriesMarkers } from "lightweight-charts";
 import React, { useEffect, useRef } from "react";
 
 const chartTypes = {
@@ -15,6 +15,8 @@ export const ChartComponent = props => {
         type,
         data,
         customisation,
+        markers,
+        CustomLegend
     } = props;
 
     const chartContainerRef = useRef();
@@ -22,7 +24,7 @@ export const ChartComponent = props => {
     useEffect(
         () => {
             const handleResize = () => {
-                chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+                chart.applyOptions({ width: chartContainerRef.current.clientWidth, height: chartContainerRef.current.clientHeight });
             };
 
             const chart = createChart(chartContainerRef.current, {
@@ -54,6 +56,10 @@ export const ChartComponent = props => {
             const newSeries = chart.addSeries(chartTypes[type], {customisation});
             newSeries.setData(data);
 
+            if (markers) {
+                createSeriesMarkers(newSeries, markers);
+            }
+
             window.addEventListener("resize", handleResize);
 
             return () => {
@@ -66,9 +72,10 @@ export const ChartComponent = props => {
     );
 
     return (
-    <div className="h-full w-full relative" ref={chartContainerRef}>
+    <div className="h-full w-full relative" ref={chartContainerRef} >
         <div className="absolute left-20 top-3 z-10 font-light leading-[18px] text-gray-400 text-xl">
             {name}
+            {CustomLegend && <CustomLegend />}
         </div>
     </div>
     );
