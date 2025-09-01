@@ -65,7 +65,7 @@ npm install
 npm start
 ```
 
-# ⚠️ Note on data
+# Note on data
 The datasets are not included in this repository. You will need to download the required data from the listed sources and format it as follows:
 
 Files should be named:
