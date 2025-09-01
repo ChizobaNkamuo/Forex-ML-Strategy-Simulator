@@ -9,6 +9,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
 def add_indicators(data):
+    """
+    Add technical indicators to data
+    """
     macd = ta.trend.MACD(data["Close"]) # Mean average convergence divergence
     bb = ta.volatility.BollingerBands(close=data["Close"], window=20)
 
@@ -28,10 +31,13 @@ def add_indicators(data):
     return data, data["date"]
 
 def create_macro_indicators(data, macro_indicators):
+    """
+    Merge macroeconomic indicators with data backwards to ensure that data is only avaliable on the dates it would've been avaliable
+    """
     data["date"] = pd.to_datetime(data["date"], format = "%d/%m/%Y")
     
     for indicator in macro_indicators:
-        indicator_data = pd.read_csv(os.path.join(BASE_DIR, "..", f"data/{indicator}.csv"))
+        indicator_data = pd.read_csv(os.path.join(BASE_DIR, f"data/{indicator}.csv"))
         indicator_data["date"] = pd.to_datetime(indicator_data["date"], format = "mixed")
         data = pd.merge_asof(
             data.sort_values("date"),
@@ -43,6 +49,9 @@ def create_macro_indicators(data, macro_indicators):
     return data
 
 def split_data(data, feature_columns, target_columns, sequence_length, scaler_name):
+    """
+    Split data into test and train and then format it for the model to use
+    """
     split = int(SPLIT_PERCENTAGE * len(data))
     train_data, train_date = add_indicators(data[:split].copy())
     test_data, test_date = add_indicators(data[split:].copy())
@@ -56,9 +65,12 @@ def split_data(data, feature_columns, target_columns, sequence_length, scaler_na
     X_train, y_train = create_sequences(train_features_scaled, train_data[target_columns].values, sequence_length)
     X_test, y_test = create_sequences(test_features_scaled, test_data[target_columns].values, sequence_length)
     
-    return X_test, X_train, y_test, y_train, test_date[sequence_length:], scaler
+    return X_test, X_train, y_test, y_train, test_date[sequence_length:]
 
 def create_sequences(features, targets, sequence_length):
+    """
+    Create sequences using the previous sequence_length features to predict the target value at sequence_length + 1
+    """
     X, y = [], []
     for i in range(len(features) - sequence_length):
         X.append(features[i:i+sequence_length])

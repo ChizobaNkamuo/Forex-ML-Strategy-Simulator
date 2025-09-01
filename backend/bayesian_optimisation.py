@@ -3,7 +3,7 @@ import numpy as np
 import feature_engineering
 import load_data
 from keras.models import Sequential
-from keras.layers import LSTM, Dense, Dropout, Bidirectional, LayerNormalization, Layer, TimeDistributed
+from keras.layers import LSTM, Dense, Dropout
 from keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from keras.optimizers import Adam
 from keras.losses import SparseCategoricalCrossentropy
@@ -12,6 +12,9 @@ from sklearn.preprocessing import MinMaxScaler
 from functools import partial
 
 def objective(trial, data, features, target):
+    """
+    Peform Bayesian optimisation to select models which perform the best in 5-fold cross validation 
+    """
     epochs = 75
     n_splits = 5
     
@@ -26,7 +29,7 @@ def objective(trial, data, features, target):
         ReduceLROnPlateau(patience=5, factor=0.5)
     ]
     
-    tscv = TimeSeriesSplit(n_splits=n_splits)
+    tscv = TimeSeriesSplit(n_splits=n_splits) #Time series split to ensure that no data leakage occurs
     scores = []
     total_trades = trades_made = 0
 
@@ -40,7 +43,7 @@ def objective(trial, data, features, target):
         features_train, features_val = scaler.fit_transform(features_train), scaler.transform(features_val)
         features_train, targets_train = feature_engineering.create_sequences(features_train, targets_train.values, sequence_length)
         features_val, targets_val = feature_engineering.create_sequences(features_val, targets_val.values, sequence_length)
-        _, diff = feature_engineering.create_sequences(val_data[["Diff"]], val_data["Diff"].values, sequence_length)
+        _, diff = feature_engineering.create_sequences(val_data[["Diff"]], val_data["Diff"].values, sequence_length) #Used to align diff values with sequences
 
         model = create_model(trial, len(features))    
         model.fit(features_train, targets_train, epochs=epochs, verbose=0, batch_size = batch_size, shuffle=False, callbacks=callbacks, validation_data=(features_val, targets_val))
@@ -53,12 +56,15 @@ def objective(trial, data, features, target):
         scores.append(score)
         
         trial.report(score, fold)
-        if trial.should_prune():
+        if trial.should_prune(): #Prune trials early if model performance is poor
             raise optuna.exceptions.TrialPruned()
     print(f"Mean number of trades {trades_made/n_splits} out of {total_trades / n_splits} per fold")
     return np.mean(scores)
 
 def create_model(trial, input_size):
+    """
+    Create a model with the parameters specified by the trial
+    """
     params = trial.params
     model_layers = []
     for i in range(params["layers"]):
@@ -72,6 +78,9 @@ def create_model(trial, input_size):
     return model
 
 def calculate_profit_accuracy(predictions, truth, diff):
+    """
+    Scores models based off how many predictions they succesfully predicted the correct direction 
+    """
     predictions = predictions.squeeze()
     truth = truth.squeeze()
     score = wrong_guesses = 0
@@ -90,33 +99,13 @@ def calculate_profit_accuracy(predictions, truth, diff):
     denominator = score + wrong_guesses
     return score / denominator if denominator > 0 else 0, denominator
 
-def calculate_sharpe_ratio(predictions, diff):
-    pnl = []
-    trades_made = 0
-
-    for pred, diff_value in zip(predictions, diff):
-        action = np.argmax(pred)
-        if action == 1:
-            pnl.append(-diff_value)
-            trades_made += 1
-        elif action == 2:
-            pnl.append(diff_value)
-            trades_made += 1
-        else:
-            pnl.append(0)
-    pnl = np.array(pnl)
-    mean_return = np.mean(pnl)
-    std_return  = np.std(pnl)
-
-    return mean_return / std_return if std_return > 0 else 0, trades_made
-
 data = load_data.load()
 target, features_macro, features_tech = load_data.get_features_and_targets()
 
-objective_with_data = partial(
+objective_with_data = partial( #Use partial to pass parameters to the objective
     objective,
     data=data,
-    features=features_tech,
+    features=features_tech, #Specify features for training macro or tech model
     target=target
 )
 

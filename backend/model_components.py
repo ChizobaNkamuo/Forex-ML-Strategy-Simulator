@@ -11,7 +11,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
 def train_macro_model(save_name, sequence_length, features_columns, features_train = None, targets_train = None):
-    savePath = os.path.join(MODEL_DIR, f"{save_name}.keras")
+    """
+    Train the macroeconomic model using the specified parameters, if no training data is passed, load the pre-trained weights instead
+    """
+    savePath = os.path.join(MODEL_DIR, f"{save_name}.weights.h5")
     dropout = 0.10227985946981902
     learning_rate = 0.005261567447932985
     model = Sequential([
@@ -23,7 +26,7 @@ def train_macro_model(save_name, sequence_length, features_columns, features_tra
     ])
     model.compile(optimizer=Adam(learning_rate = learning_rate), loss=SparseCategoricalCrossentropy(), metrics=[])
 
-    if not features_train:
+    if features_train is None:
         model(tf.zeros((1, sequence_length, len(features_columns))))
         model.load_weights(savePath)
         return model
@@ -39,7 +42,7 @@ def train_macro_model(save_name, sequence_length, features_columns, features_tra
             verbose=1
         )
 
-        history = model.fit(features_train, targets_train, 
+        model.fit(features_train, targets_train, 
             epochs=200, 
             batch_size=128, 
             validation_split=0.2,
@@ -50,7 +53,10 @@ def train_macro_model(save_name, sequence_length, features_columns, features_tra
         return model
 
 def train_tech_model(save_name, sequence_length, features_columns, features_train = None, targets_train = None):
-    savePath = os.path.join(MODEL_DIR, f"{save_name}.keras")
+    """
+    Train the technical model using the specified parameters, if no training data is passed, load the pre-trained weights instead
+    """
+    savePath = os.path.join(MODEL_DIR, f"{save_name}.weights.h5")
     dropout = 0.04299831983137829
     learning_rate = 0.0012254914143249621
     model = Sequential([
@@ -60,7 +66,7 @@ def train_tech_model(save_name, sequence_length, features_columns, features_trai
     ])
     model.compile(optimizer=Adam(learning_rate = learning_rate), loss=SparseCategoricalCrossentropy(), metrics=[])
 
-    if not features_train:
+    if features_train is None:
         model(tf.zeros((1, sequence_length, len(features_columns))))
         model.load_weights(savePath)
         return model
@@ -76,7 +82,7 @@ def train_tech_model(save_name, sequence_length, features_columns, features_trai
             verbose=1
         )
 
-        history = model.fit(features_train, targets_train, 
+        model.fit(features_train, targets_train, 
             epochs=200, 
             batch_size=32, 
             validation_split=0.2,
@@ -87,6 +93,12 @@ def train_tech_model(save_name, sequence_length, features_columns, features_trai
         return model
     
 def hybrid_predict(macro_predictions, tech_predictions):
+    """
+    Create the ensemble predictions such that:
+    Both models predicted the same thing -> Use the shared prediction
+    One model predicts no movement -> Predict no movement
+    Otherwise -> Take the prediction of the more confident model
+    """
     macro_predictions = macro_predictions.squeeze()
     tech_predictions = tech_predictions.squeeze()
     joint_predictions = []

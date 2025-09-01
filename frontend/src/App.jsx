@@ -53,7 +53,7 @@ function App() {
   const equityCustomisation = {lineColor: "#2962FF", areaTopColor: "#2962FF", areaBottomColor: "oklch(27.9% 0.041 260.031)"}
   function runModel() {
       setLoading(true);
-      axios.get("http://127.0.0.1:8000/backtest",{
+      axios.get("http://forex-backend-again-env-1.eba-zfa3wimu.eu-west-2.elasticbeanstalk.com/backtest",{
         params: {
           start_date: date[0],
           end_date: date[1],
@@ -124,7 +124,7 @@ function App() {
           {loading ? Spinner(): 
           <>
           <h3 className="text-gray-400 text-sm tracking-wide mb-4 py m-0">TRADES MADE</h3>
-          <ul>{trades.map((key) => (<li className="border-b text-sm border-slate-600" key = {key}>{key}</li>))}</ul>
+          <ul>{trades.map((key, index) => (<li className="border-b text-sm border-slate-600" key = {index}>{key}</li>))}</ul>
           </>}
         </div>
 

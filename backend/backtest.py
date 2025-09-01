@@ -1,9 +1,8 @@
 import pandas as pd
 import numpy as np
 import backtrader as bt
-import load_data, feature_engineering, model_components, joblib, os, datetime
-from matplotlib import dates
-UNITS = 800000
+import load_data, feature_engineering, model_components, joblib, os
+UNITS = 800000 #Default number of units for trades
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
@@ -11,19 +10,24 @@ class Strategy(bt.Strategy):
     params = (
         ("units", UNITS),
     )
+
     def log(self, txt):
+        """
+        Adds logged events to a list to be returned to the user
+        """
         dt = self.datas[0].datetime.date(0).strftime("%d-%m-%Y")
-        #print(f"{dt.isoformat()}, {txt}")
         self.trades.append(f"{dt}, {txt}")
 
     def __init__(self):
         self.data_close = self.datas[0].close
         self.predictions = self.datas[0].predictions
-        #self.truth_predictions = self.datas[0].truth_predictions
         self.order = None
         self.trades = []
 
     def notify_order(self, order):
+        """
+        Logs the status of orders
+        """
         if order.status in [order.Submitted, order.Accepted]:
             return
         
@@ -34,23 +38,18 @@ class Strategy(bt.Strategy):
             else:
                 self.log(f"SELL EXECUTED, Price: {order.executed.price}, Comm {round(order.executed.comm, 2)}")
 
-        elif order.status in [order.Margin]:# order.Canceled, 
+        elif order.status in [order.Margin]:
             self.log("ORDER REJECTED - Insufficient Margin")
 
         self.order = None
 
-    def notify_trade(self, trade):
-        if not trade.isclosed:
-            return
-        pass #self.log(f"OPERATION PROFIT {round(trade.pnlcomm, 2)}")
-
-    def next(self):        
-        portfolio_value = self.broker.getvalue()
-        cash = self.broker.getcash()
-        position_value = portfolio_value - cash
+    def next(self):     
+        """
+        If the model predicts differently from it's last prediction -> Close any open positions
+        And then if the new prediction isn't do nothing -> Open a new position
+        """   
         prediction = self.predictions[0]
         price = self.data_close[0]
-        #self.log(f"Portfolio: ${portfolio_value:.2f}, Cash: ${cash:.2f}, Position: ${position_value:.2f}")
         current_position = self.broker.getposition(self.data).size
         
         if ((prediction == 2 and current_position < 0) or   # Want long but short
@@ -62,7 +61,7 @@ class Strategy(bt.Strategy):
             
         if prediction == 2 and current_position <= 0:
             order = self.buy(size=self.p.units, transmit=False)
-            self.stop_order = self.sell(
+            self.stop_order = self.sell( #Set stop loss of 2%
                 exectype=bt.Order.Stop, 
                 price= price * 0.98,
                 parent=order
@@ -70,7 +69,7 @@ class Strategy(bt.Strategy):
 
         elif prediction == 1 and current_position >= 0:
             order = self.sell(size=self.p.units, transmit=False)
-            self.stop_order = self.buy(
+            self.stop_order = self.buy( #Set stop loss of 2%
                 exectype=bt.Order.Stop, 
                 price= price * 1.02,
                 parent=order
@@ -79,7 +78,7 @@ class Strategy(bt.Strategy):
 
 
 class TradingData(bt.feeds.PandasData):
-    lines = ("predictions",)
+    lines = ("predictions",) #Add a custom column to the data - predictions
     params = (
         ("datetime", None),
         ("volume", None),
@@ -88,10 +87,12 @@ class TradingData(bt.feeds.PandasData):
         ("low", -1),
         ("close", -1),
         ("predictions", -1), 
-        #("truth_predictions", -1),
     )
 
 def backtest(start_date, end_date, leverage, start_cash, units):
+    """
+    Loads pre-trained models and runs a backtest simulation using the specified parameters
+    """
     target_column, feature_columns_macro, feature_columns_tech = load_data.get_features_and_targets()
     data = load_data.load()
     sequence_length_tech, sequence_length_macro = 90, 20
@@ -101,10 +102,7 @@ def backtest(start_date, end_date, leverage, start_cash, units):
     required_lookback = max(sequence_length_tech, sequence_length_macro)
     data = data.iloc[max(0, start_position - required_lookback):]
     data = data[data["date"] <= pd.to_datetime(end_date)]    
-    
-    #features_test_macro, features_train_macro, targets_test_macro, targets_train_macro, test_dates_macro, scaler_macro = feature_engineering.split_data(data.copy(deep = True), feature_columns_macro, target_column, sequence_length_macro)
-    #features_test_tech, features_train_tech, targets_test_tech, targets_train_tech, test_dates_tech, scaler_tech = feature_engineering.split_data(data, feature_columns_tech, target_column, sequence_length_tech)
-    
+
     features_test_macro, features_test_tech = data[feature_columns_macro], data[feature_columns_tech]
     targets_test = data[target_column]
 
@@ -161,6 +159,9 @@ def backtest(start_date, end_date, leverage, start_cash, units):
     return {"equity_curve": equity_curve, "candle_sticks": candle_sticks, "markers": markers, "stats": generate_metrics(cerebro, results, data_frame), "trades" : results.trades}
 
 def generate_metrics(cerebro, results, data_frame):
+    """
+    Generates useful metrics from the simulation results
+    """
     drawdown = results.analyzers.drawdown.get_analysis()
     returns_analysis = results.analyzers.returns.get_analysis()#["rtot"]
     trade_analysis = results.analyzers.tradeanalyzer.get_analysis()
@@ -177,7 +178,7 @@ def generate_metrics(cerebro, results, data_frame):
     largest_loss = abs(trade_analysis.get("lost", {}).get("pnl", {}).get("max", 0) )
     avg_win = trade_analysis.get("won", {}).get("pnl", {}).get("average", 0)
     avg_loss = abs(trade_analysis.get("lost", {}).get("pnl", {}).get("average", 0))
-    win_loss_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else 0
+    pay_off_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else None
 
     returns_percent = 0
 
@@ -192,7 +193,7 @@ def generate_metrics(cerebro, results, data_frame):
         "Total Returns": str(round(returns_percent * 100, 2)) + "%",
         "Total Trades" : total_trades,
         "Win Rate" : str(round(win_rate * 100, 2)) + "%",
-        "Payoff Ratio" : round(win_loss_ratio, 2),
+        "Payoff Ratio" : round(pay_off_ratio, 2) if pay_off_ratio else "N/A",
         "Profit Factor" : round(profit_factor, 2) if profit_factor else "N/A",
         "Largest Win" : "$"+ str(round(largest_win, 2)),
         "Largest Loss" : "$"+ str(round(largest_loss, 2)),
