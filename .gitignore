@@ -3,7 +3,6 @@ __pycache__/
 .ipynb_checkpoints/
 *.pkl
 *.csv
-data/*
 
 # Logs
 logs
